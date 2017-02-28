@@ -21,8 +21,14 @@ import os, sys
 import matplotlib as m
 import numpy as np
 import h5py
+import scipy.constants
+import itertools
+import collections
+import pandas
+import fileinput
 
-class SHEMAT_suite_file:
+
+class SHEMATSuiteFile:
     """
     Class for SHEMAT-Suite simulation input files
     Object methods enable a direct access of all variables and parameters
@@ -66,7 +72,7 @@ class SHEMAT_suite_file:
         """
         try:
             file = open(filename, 'r')
-        except IOError (nr, string_err):
+        except IOError, (nr, string_err):
             print("Cannot open file {} : {} Err# {}.".format(filename, string_err, nr))
             print("Please check if the file name and directory are correct.")
             raise IOError
@@ -82,7 +88,7 @@ class SHEMAT_suite_file:
         """
         try:
             file = open(filename, 'w')
-        except IOError (nr, string_err):
+        except IOError, (nr, string_err):
             print("Cannot open file {} : {} Err# {}.".format(filename, string_err, nr))
             print("Please check if the file name and directory are correct.")
             raise IOError
@@ -198,7 +204,7 @@ class SHEMAT_suite_file:
 
 
 
-    def voxel_input(self):
+    def voxel_input(self, filename):
         with open(filename) as f:
             data = [line.split() for line in f]
             info = dict((var.strip(), float(num.strip())) for var, num in data[0:9])
@@ -211,12 +217,99 @@ class SHEMAT_suite_file:
             else:
                 units = list(itertools.chain(*data[9:]))
 
-
-
         try:
-            fT = open("TOP_BC_{}.temp".format(f.name[:-4]),'w')
-            fh = open("TOP_BC_{}.head".format(f.name[:-4]),'w')
-            fp = open("TOP_BC_{}.pres".format(f.name[:-4]),'w')
+            fT = open("TOP_BC_{}.temp".format(f.name[:-4]), 'w')
+            fh = open("TOP_BC_{}.head".format(f.name[:-4]), 'w')
+            fp = open("TOP_BC_{}.pres".format(f.name[:-4]), 'w')
         except IOError:
-            print("Cannot open file TOP_BC_{}.temp for writing".format(f.name[:-4]))
+            print("Can not open file TOP_BC_{}.temp for writing".format(f.name[:-4]))
+            print("Can not open file TOP_BC_{}.head for writing".format(f.name[:-4]))
+            print("Can not open file TOP_BC_{}.pres for writing".format(f.name[:-4]))
+
+        nxyz = int(info['nx'] * info['ny'] * info['nz'])
+        unui = {}
+        uindex = 1
+        count = 1
+        form = units[0]
+        uindex_field = []
+        s = ""
+        ix = 1
+        iy = 1
+        iz = 1
+        p0 = 0.101325
+        lapserate = -0.0065
+        t_surf = 286.15
+
+        for i in range(1, nxyz):
+            if units[i] not in unui:  # if the unit is not in the dictionary, add it
+                unui.update({units[i]: uindex})
+                uname = units[i]
+                uindex += 1  # increase the uindex for shemat
+
+            if units[i] == units[i - 1]:  # count up the units found in the voxel file
+                count += 1
+
+            else:
+                # print("{}*{}".format(count,unui[units[i-1]]))
+                # append the units and write it in the format x*y until a new
+                # unit is reached
+                uindex_field.append("{}*{}".format(count, unui[units[i - 1]]))
+                s += "{}*{} ".format(count, unui[units[i - 1]])
+                count = 1
+            if i == (nxyz - 1):
+                # print("{}*{}".format(count,unui[units[i]]))
+                # don't forget to include the last unit
+                uindex_field.append("{}*{}".format(count, unui[units[i]]))
+                s += "{}*{}".format(count, unui[units[i]])
+
+            if ix < info['nx']:
+                ix += 1
+            elif iy < info['ny']:
+                ix = 1
+                iy += 1
+            else:
+                ix = 1
+                iy = 1
+                iz += 1
+
+            if (units[i] == 'out' and iz < info['nz']) or iz == info['nz']:
+                fT.write("{} {} {} {} 0 \n".format(ix, iy, iz,
+                                                   ((iz * info['dz'] + info['z0']) * lapserate + t_surf - 273.15)))
+                fh.write("{} {} {} {} 0 \n".format(ix, iy, iz, head))
+                fp.write("{} {} {} {} 0 \n".format(ix, iy, iz, 0.101325))
+            else:
+                head = iz * info['dz']
+                # pres = p0 * (1 + lapserate/t_surf * (iz*info['dz'] + info['z0']))**((-scipy.constants.g*0.0289644)/(lapserate*scipy.constants.R))
+
+        #un_counts = collections.Counter(units)
+        fT.close()
+        fh.close()
+        fp.close()
+        return info, s
+
+
+    def read_monitor(self, filename):
+        """
+        Routine to read the monitoring points of a transient SHEMAT-Suite simulation, returning an array of recorded
+        values
+        param filename: string: name of monitoring file
+               varname: string or list of strings: name of variables to be loaded
+        return: monitoring file: dataframe containing all information of the monitoring file
+        """
+        # replace any % comments with
+        if sys.version_info[0] == 2:
+            print("Seems you still work with Python 2.7.")
+            print("You should consider moving to Version 3.x")
+            fid = fileinput.FileInput(filename, inplace=True, backup='.bak')
+            for line in fid:
+                print(line.replace('%', ''))
+        elif sys.version_info[0] == 3:
+            with fileinput.FileInput(filename, inplace=True, backup='.bak') as fid:
+                for line in fid:
+                    print(line.replace('%', ''))
+
+
+        # load dataframe
+        datframe = pandas.read_csv(filename, delim_whitespace=True)
+        return datframe
 
