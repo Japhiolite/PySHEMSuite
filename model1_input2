@@ -22,7 +22,7 @@
 
 
 !==========>>>>> MESH in meters
-!grid_start
+!sdf sef
 # grid
 100 1 100
 # delx
@@ -31,7 +31,7 @@
 1*25
 # delz
 100*10
-!grid_end
+
 
 !==========>>>>> TIME STEP
 # timestep control
