@@ -382,104 +382,139 @@ class SHEMATSuiteFile:
         return datframe
 
 def create_empty_model(**kwargs):
-
-    lines = """# title
-    default_model
-    # linfo
-    1 1 1 1
-    # runmode
-    0
-    # USER=none
-    # PROPS=bas
-    # active temp head
-
-    !==========>>>>> I/O
-    # file output tec hdf vtk
-
-    !==========>>>>> MESH in meters
-    # grid
-    10 10 10
-    # delx
-    10*10
-    # dely
-    10*10
-    # delz
-    10*10
-
-    !==========>>>>> TIME STEP
-    # timestep control
-    0
-    1.0 1.0 1.0 0.0
-    # tunit
-    1
-    # time periods records=1
-    0.0	150000	100 lin
-    # output times records=1
-    31557600
-
-    !==========>>>>> NONLINEAR SOLVER
-    # nlsolve
-    100 0
-
-    !==========>>>>> FLOW
-    # lsolvef (linear solver control)
-    1.d-12 64 300
-    # nliterf (nonlinear iteration control)
-    1.0d-9 1.
-    # grad nliterf (nonlinear iterations control)
-    1.0d-7
-
-    !==========>>>>> TEMPERATURE
-    # lsolvet (linear solver control)
-    1.d-12 64 300
-    # nlitert (nonlinear iteration control)
-    1.0d-9 1.
-    #grad nlitert (nonlinear iteration control)
-    1.0d-7
-
-    !==========>>>>> BOUNDARY CONDITIONS
-
-    !head_bcd_top
-    # head bcd	simple=top error=ignore
-    960 959.4 958.8 958.2 957.6 957 956.4 955.8 955.2 954.6 954 953.4 952.8 952.2 951.6 951 950.4 949.8 949.2 948.6 948 947.4 946.8 946.2 945.6 945 944.4 943.8 943.2 942.6 942 941.4 940.8 940.2 939.6 939 938.4 937.8 937.2 936.6 936 935.4 934.8 934.2 933.6 933 932.4 931.8 931.2 930.6 930 929.4 928.8 928.2 927.6 927 926.4 925.8 925.2 924.6 924 923.4 922.8 922.2 921.6 921 920.4 919.8 919.2 918.6 918 917.4 916.8 916.2 915.6 915 914.4 913.8 913.2 912.6 912 911.4 910.8 910.2 909.6 909 908.4 907.8 907.2 906.6 906 905.4 904.8 904.2 903.6 903 902.4 901.8 901.2 900.6
-    # head bcd, simple=left, error=ignore, bcindex=1
-    # head bcd, simple=right, error,ignore, bcindex=2
-
-    # bcunits, records=2
-    1 960. head
-    2 900.6 head
-
-    !temp_bcd_top
-    # temp bcd simple=top error=ignore
-    100*11
-    # temp bcn simple=base error=ignore
-    100*0.03
-    !temp_bcd_end
-    # temp bcd, simple=left, error=ignore, value=init
-    # temp bcd, simple=right, error=ignroe, value=init
-
-
-    !==========>>>>> INITIAL VALUES
-    !bcd_ini_start
-    # head init HDF5=model1_input.h5
-    !# head init
-    10000*900.0d0
-    # temp init HDF5=model1_input.h5
-    !# temp init
-    10000*11.0d0
-    !bcd_ini_end
-
-
-    !==========>>>>> UNIT DESCRIPTION
-
-    # units
-    0.06 1.d0 1.d0 1.1e-13 1.e-10 1.d0 1.d0 3.0 0.000 2.06e6 10.0 1.e-9 0.d0
-    0.06 1.d0 1.d0 1.2e-13 1.e-10 1.d0 1.d0 2.0 0.000 2.06e6 10.0 1.e-9 0.d0
-
-
-    # uindex
-    4000*1
-    6000*2
     """
+    Create a new SHEMAT-Suite model based on given grid and boundary conditions given.
 
+    This method can be used to create a simple empty standard model with predefined grid spacing
+    in each direction (delx, dely, delz) and simple boundary conditions.
+    The standard base model without any kwargs is a conductive heat transport model with h5 and vtk
+    output files. The simulation is steady-state and consists of a single unit. All default settings
+    can be changed with optional kwargs.
 
+    **Optional kwargs**:
+        -*title* = string: title of the model
+        -*delx* = []: list of spacing in x-direction
+        -*dely* = []: list of spacing in y-direction
+        -*delz* = []: list of spacing in z-direction
+        -*extent_x* = (float, float): range of geomodel in x-direction (def= model range)
+        -*extent_y* = (float, float): range of geomodel in y-direction (def= model range)
+        -*extent_z* = (float, float): range of geomodel in z-direction (def= model range)
+        -*transient* = boolean: if TRUE, set to transient simulation
+
+    **Additional kwargs for boundary and initial conditions**:
+        -*filename* = string: name of input file
+        -*verbose* = boolean: show output of model on screen (def=False)
+        -*vtk* = boolean: toggle output of a .vtk file (def=True)
+        -*bc_temperature_top* = 'bcd', 'bcn': top boundary condition type for temp
+        -*bc_temperature_base* = 'bcd', 'bcn': bottom boundary condition type for temp
+        -*value_temperature_top* = float: fixed value (temperature for bcd, spec. heat flow for bcn)
+        -*value_temperature_base* = float: fixed value (temperature for bcd, spec. heat flow for bcn)
+        -*bc_head_top* = 'bcd', 'bcn': top boundary condition type for head
+        -*bc_head_base* = 'bcd', 'bcn': base boundary condition type for head
+        -*value_head_top* = float: fixed value (head for bcd, volumetric flow rate for bcn)
+        -*value_head_base* = float: fixed value (head for bcd, volumetric flow rate for bcn)
+
+    **Additional Keywords for geometry functionalities**:
+        -*update_from_voxel_file* = boolean: update geology and grid properties from .vox file
+        -*update_property_from_csv* = csv_file: csv file containing petrophysical properties (# units)
+    """
+    verbose = kwargs.get("verbose", False)
+    S1 = SHEMATSuiteFile()
+    S1.filelines = []
+    lines = """!==========>>>>> MODEL INFO
+# title
+default_model
+# linfo
+1 1 1 1
+# runmode
+0
+# USER=none
+# PROPS=bas
+# active temp head
+
+!==========>>>>> I/O
+# file output hdf vtk
+
+!==========>>>>> MESH in meters
+# grid
+10 10 10
+# delx
+10*10
+# dely
+10*10
+# delz
+10*10
+
+!==========>>>>> TIME STEP
+# timestep control
+0
+1.0 1.0 1.0 0.0
+# tunit
+1
+# time periods records=1
+0.0	150000	100 lin
+# output times records=1
+31557600
+
+!==========>>>>> NONLINEAR SOLVER
+# nlsolve
+100 0
+
+!==========>>>>> FLOW
+# lsolvef (linear solver control)
+1.d-12 64 300
+# nliterf (nonlinear iteration control)
+1.0d-9 1.
+# grad nliterf (nonlinear iterations control)
+1.0d-7
+
+!==========>>>>> TEMPERATURE
+# lsolvet (linear solver control)
+1.d-12 64 300
+# nlitert (nonlinear iteration control)
+1.0d-9 1.
+#grad nlitert (nonlinear iteration control)
+1.0d-7
+
+!==========>>>>> BOUNDARY CONDITIONS
+
+# head bcd	simple=top error=ignore
+100*100.d0
+
+# temp bcd simple=top error=ignore
+100*11
+# temp bcn simple=base error=ignore
+100*0.03
+
+!==========>>>>> INITIAL VALUES
+# head init
+1000*100.0d0
+# temp init
+1000*50.0d0
+
+!==========>>>>> UNIT DESCRIPTION
+# units
+0.06 1.d0 1.d0 1.0d-15 1.0d-10 1.d0 1.d0 2.d0 0.d0 2.0d6 10.d0 0.d0 0.d0 2.d0 1.0d3 0.05d0 0.2d0
+# uindex
+1000*1
+"""
+    if kwargs.has_key('filename'):
+        filename = kwargs['filename']
+    else:
+        filename = "default_SHEMAT_Model"
+
+    for line in lines.split('\n'):
+        if verbose:
+            print line
+        S1.filelines.append(line + '\n')
+
+    if kwargs.has_key('transient') and kwargs['transient'] == True:
+        S1.set("timestep control",1)
+    if kwargs.has_key('title'):
+        title = kwargs['title']
+    else:
+        title = "default SHEMAT-Suite model"
+    S1.set('title', title)
+
+    S1.write_file(filename)
+    return S1
