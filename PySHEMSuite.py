@@ -26,6 +26,7 @@ import itertools
 import collections
 import pandas
 import fileinput
+import re
 
 
 class SHEMATSuiteFile:
@@ -61,7 +62,7 @@ class SHEMATSuiteFile:
         if kwds.has_key('offscreen') and kwds['offscreen']:
             m.use('Agg')
 
-    def __repr__(self):
+    def __repr__(self,**kwargs):
         """
         Information display of the SHEMAT-Suite Object
         """
@@ -165,6 +166,49 @@ class SHEMATSuiteFile:
             if var_name in j:
                 self.filelines[i+line] = str(value) + "\n"
 
+    def set_array(self, var_name, value_list, **kwargs):
+        value = ""
+        for (i, l) in enumerate(self.filelines):
+            # construct variable in correct format with multiplier "*"
+            if var_name in l:
+                n = 1
+                for (j, val) in enumerate(value_list):
+                    try:
+                        if val == value_list[j+1]:
+                            n += 1
+                            continue
+                    except IndexError:
+                        pass
+                    if n == 1:
+                        if var_name == 'grid':
+                            nx = value_list[0]
+                            ny = value_list[1]
+                            nz = value_list[2]
+                            value += "%d " % val
+                            nxyz = nx*ny*nz
+                            if hasattr(self, 'temp init'):
+                                tinit = self.get('temp init').rsplit()[0]
+                            if hasattr(self, 'head init'):
+                                hinit = self.get('head init').rsplit()[0]
+                            if hasattr(self, 'pres init'):
+                                pinit = self.get('pres init').rsplit()[0]
+                        else:
+                            value += "%.2f " % val
+                    else:
+                        value += "%d*%.2f " % (n, val)
+                    n = 1
+                self.filelines[i+1] = value + '\n'
+                if var_name == 'grid':
+                    if hasattr(self, 'temp init'):
+                        self.set('temp init', '%d*%s' % (nxyz,tinit.split('*')[1]))
+                    if hasattr(self, 'temp init'):
+                        self.set('head init', '%d*%s' % (nxyz,hinit.split('*')[1]))
+                    if hasattr(self, 'temp init'):
+                        self.set('pres init', '%d*%s' % (nxyz,pinit.split('*')[1]))
+
+
+
+
     def set_grid(self, grid_data):
         new_nx, new_ny = grid_data.shape
         if new_nx != self._nx:
@@ -183,9 +227,10 @@ class SHEMATSuiteFile:
         if hasattr(self, '_dx') and hasattr(self, '_nx'):
             self._extent_x = self._nx * self._dx
             self._extent_y = self._ny * self._dy
+            self._extent_z = self._nz * self._dz
 
     def get_extent(self):
-        return (self._extent_x, self._extent_y)
+        return (self._extent_x, self._extent_y, self._extent_z)
 
     def set_nxny(self, nx, ny):
         self._nx = nx

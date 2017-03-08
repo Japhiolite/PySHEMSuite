@@ -14,7 +14,7 @@ default SHEMAT-Suite model
 
 !==========>>>>> MESH in meters
 # grid
-10 10 10
+10 25 5 
 # delx
 10*10
 # dely
