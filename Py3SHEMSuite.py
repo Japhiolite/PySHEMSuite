@@ -37,7 +37,7 @@ class SHEMATSuiteFile:
     Further methods enable 1D, 2D and 3D plots of HDF5 files and creation of
     publication-ready images.
     """
-    def __init__(self, filename='', **kwds):
+    def __init__(self, filename='', **kwargs):
         """
         Initialization of the SHEMAT-Suite Object
 
@@ -51,16 +51,24 @@ class SHEMATSuiteFile:
         """
         if filename == '':
             print("creating empty file")
-            if kwds.has_key('new_filename'):
-                self.filename = kwds['new_filename']
+            if 'new_filename' in kwargs:
+                self.filename = kwargs['new_filename']
         else:
             self.filelines = self.read_file(filename)
             self.filename = filename
             self.idim = int(self.get("grid").split()[0])
             self.jdim = int(self.get("grid").split()[1])
             self.kdim = int(self.get("grid").split()[2])
-        if kwds.has_key('offscreen') and kwds['offscreen']:
+        if 'offscreen' in kwargs and kwargs['offscreen']:
             m.use('Agg')
+        if sys.version_info.major == 2:
+            print("You are using Python version 2.x")
+            print("This software is programmed for Python 3.x.")
+            print("Full functionalities are not guaranteed with Python 2.x")
+        elif sys.version_info.major == 3:
+            print("Python 3, good to go!")
+
+
 
     def __repr__(self,**kwargs):
         """
@@ -89,7 +97,7 @@ class SHEMATSuiteFile:
         """
         try:
             file = open(filename, 'r')
-        except IOError, (nr, string_err):
+        except IOError (nr, string_err):
             print("Cannot open file {} : {} Err# {}.".format(filename, string_err, nr))
             print("Please check if the file name and directory are correct.")
             raise IOError
@@ -105,7 +113,7 @@ class SHEMATSuiteFile:
         """
         try:
             file = open(filename, 'w')
-        except IOError, (nr, string_err):
+        except IOError (nr, string_err):
             print("Cannot open file {} : {} Err# {}.".format(filename, string_err, nr))
             print("Please check if the file name and directory are correct.")
             raise IOError
@@ -186,12 +194,24 @@ class SHEMATSuiteFile:
                             nz = value_list[2]
                             value += "%d " % val
                             nxyz = nx*ny*nz
-                            if hasattr(self, 'temp init'):
+                            try:
                                 tinit = self.get('temp init').rsplit()[0]
-                            if hasattr(self, 'head init'):
+                            except AttributeError:
+                                print("temp init not found")
+                            try:
                                 hinit = self.get('head init').rsplit()[0]
-                            if hasattr(self, 'pres init'):
+                            except AttributeError:
+                                print("head init not found")
+                            try:
                                 pinit = self.get('pres init').rsplit()[0]
+                            except AttributeError:
+                                print("pres init not found")
+                            try:
+                                delx = self.get('delx').rsplit()[0]
+                                dely = self.get('dely').rsplit()[0]
+                                delz = self.get('delz').rsplit()[0]
+                            except AttributeError:
+                                pass
                         else:
                             value += "%.2f " % val
                     else:
@@ -199,12 +219,24 @@ class SHEMATSuiteFile:
                     n = 1
                 self.filelines[i+1] = value + '\n'
                 if var_name == 'grid':
-                    if hasattr(self, 'temp init'):
+                    try:
                         self.set('temp init', '%d*%s' % (nxyz,tinit.split('*')[1]))
-                    if hasattr(self, 'temp init'):
+                    except:
+                        pass
+                    try:
                         self.set('head init', '%d*%s' % (nxyz,hinit.split('*')[1]))
-                    if hasattr(self, 'temp init'):
+                    except:
+                        pass
+                    try:
                         self.set('pres init', '%d*%s' % (nxyz,pinit.split('*')[1]))
+                    except:
+                        pass
+                    try:
+                        self.set('delx', '%d*%s' % (nx, delx.split('*')[1]))
+                        self.set('dely', '%d*%s' % (ny, dely.split('*')[1]))
+                        self.set('delz', '%d*%s' % (nz, delz.split('*')[1]))
+                    except:
+                        raise AttributeError
 
 
 
@@ -545,19 +577,19 @@ default_model
 # uindex
 1000*1
 """
-    if kwargs.has_key('filename'):
+    if 'filename' in kwargs:
         filename = kwargs['filename']
     else:
         filename = "default_SHEMAT_Model"
 
     for line in lines.split('\n'):
         if verbose:
-            print line
+            print(line)
         S1.filelines.append(line + '\n')
 
-    if kwargs.has_key('transient') and kwargs['transient'] == True:
+    if 'transient' in kwargs and kwargs['transient'] == True:
         S1.set("timestep control",1)
-    if kwargs.has_key('title'):
+    if 'title' in kwargs:
         title = kwargs['title']
     else:
         title = "default SHEMAT-Suite model"
