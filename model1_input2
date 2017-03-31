@@ -91,10 +91,10 @@
 
 !==========>>>>> INITIAL VALUES
 !bcd_ini_start
-# head init HDF5=model1_input.h5
+
 !# head init
 10000*900.0d0
-# temp init HDF5=model1_input.h5
+
 !# temp init
 10000*11.0d0
 !bcd_ini_end

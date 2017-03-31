@@ -4,14 +4,15 @@ and process SHEMAT-Suite Input files.
 
 ********************************************************************************
 
-PySHEMAT-Suite can be redistributed and/or modified under the terms of the GNU
-General Public License as published by the Free Software Foundation, either
-version 3 of the License, or any later version.
+PySHEMAT-Suite can be redistributed and/or modified under the terms of the MIT
+License as published by the Open Source Initiative.
+(https://opensource.org/licenses/MIT)
+Copyright 2017(c) Jan Niederau
 
-PySHEMAT-Suite is distributed WITHOUT ANY WARRANTY; without the implied WARRANTY
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-http://www.gnu.org/licenses/
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ********************************************************************************
 
 For module, update and documentation of PySHEMAT-Suite, see the Git-repository.
@@ -19,14 +20,14 @@ For module, update and documentation of PySHEMAT-Suite, see the Git-repository.
 
 import os, sys
 import matplotlib as m
-import numpy as np
-import h5py
-import scipy.constants
+# import numpy as np
+# import h5py
+# import scipy.constants
 import itertools
-import collections
-import pandas
-import fileinput
-import re
+# import collections
+# import pandas
+# import fileinput
+# import re
 
 
 class SHEMATSuiteFile:
@@ -37,20 +38,22 @@ class SHEMATSuiteFile:
     Further methods enable 1D, 2D and 3D plots of HDF5 files and creation of
     publication-ready images.
     """
+
     def __init__(self, filename='', **kwargs):
         """
-        Initialization of the SHEMAT-Suite Object
+        Args:
+        :param filename: string, filename of SHEMAT-Suite Input file to load.
+                         If no filename is provided, an empty file object is created.
+        :param kwargs: Optional arguments.
+                        offscreen: boolean, set variables for offscreen rendering, e.g. for creating plots
+                        on a remote machine via ssh
 
-        **Arguments**:
-            -*new_filename* = string: filename in cas an empty file is created
-            -*filename* = string: filename of SHEMAT-Suite Input file to load
-
-        **Optional keywords**:
-            -*offscreen* = boolean: set variables for offscreen rendering, e.g.
-            for creating plots on a remote machine via ssh
         """
         if filename == '':
             print("creating empty file")
+            self.filelines = ['!===>>Empty model input created with PySHEMSuite \n',
+                              '# title \n',
+                              'Empty_input_file \n']
             if 'new_filename' in kwargs:
                 self.filename = kwargs['new_filename']
         else:
@@ -68,11 +71,12 @@ class SHEMATSuiteFile:
         elif sys.version_info.major == 3:
             print("Python 3, good to go!")
 
-
-
-    def __repr__(self,**kwargs):
+    def __repr__(self, **kwargs):
         """
-        Information display of the SHEMAT-Suite Object
+        Print function of the Basic Input File components if an existing SHEMAT-Suite file is loaded
+            :param kwargs:
+
+        :return: info_string: string, containing information about model dimensions, active variables, etc
         """
         # basic information
         if hasattr(self, '_nx') and hasattr(self, '_ny'):
@@ -88,17 +92,20 @@ class SHEMATSuiteFile:
 
     def read_file(self, filename):
         """
-        Open and read a SHEMAT-Suite input file
-        **Arguments**:
-            -*filename* = string: filename
+        Read an existing SHEMAT-Suite Input file
 
-        **Returns**:
-            -List of lines in the file #better Dict??
+        Arguments:
+            :param filename:    string, name of the Input file to load.
+            :return:    filelines, list of filelines in the Input file.
+
+        Example:
+        (n is a SHEMATSuiteFile object)
+        n.read_file('SHEMAT-Suite_inp_file')
         """
         try:
             file = open(filename, 'r')
-        except IOError (nr, string_err):
-            print("Cannot open file {} : {} Err# {}.".format(filename, string_err, nr))
+        except IOError:
+            print("Cannot open file {}.".format(filename))
             print("Please check if the file name and directory are correct.")
             raise IOError
         # check if number of entries is correct
@@ -109,12 +116,19 @@ class SHEMATSuiteFile:
 
     def write_file(self, filename):
         """
-        Write SHEMAT object to file
+        Write a PySHEMSuite object to a file
+
+        Arguments:
+            :param filename:    string, name of the SHEMAT-Suite Input file to write
+
+        Example:
+        (n is a SHEMATSuiteFile object)
+        n.write('Test_file')
         """
         try:
             file = open(filename, 'w')
-        except IOError (nr, string_err):
-            print("Cannot open file {} : {} Err# {}.".format(filename, string_err, nr))
+        except IOError:
+            print("Cannot open file {}.")
             print("Please check if the file name and directory are correct.")
             raise IOError
             exit(0)
@@ -122,31 +136,30 @@ class SHEMATSuiteFile:
         file.writelines(self.filelines)
         file.close()
 
-
     def get(self, var_name, line=1):
         """
         Get the value of a scalar variable.
         Determines the value of a variable or parameter in the SHEMAT-Suite Input
         file.
 
-        **Arguments**:
-            - *var_name* = string: Name of the scalar variable
+        Arguments:
+            :param var_name:    string Name of the scalar variable
 
-        **Optional keywords**:
-            - *line* = Number of lines for multiline variables
+        Optional Argument:
+            :param line:        integer, number of lines to read after the var_name
 
-        **Returns**
-            String with variable
+
+        :return:            string, containing variables to get
         """
-        for (i,j) in enumerate(self.filelines):
+        for (i, j) in enumerate(self.filelines):
             if var_name in j:
                 if line == 1:
-                    return self.filelines[i+1]
+                    return self.filelines[i + 1]
                     break
                 else:
                     lines = []
                     for k in range(line):
-                        lines.append(self.filelines[i+1+k])
+                        lines.append(self.filelines[i + 1 + k])
                     return lines
                     break
 
@@ -155,24 +168,29 @@ class SHEMATSuiteFile:
         Get the values of an array variable
         Array variables (e.g. temperature, pressure, etc.) in SHEMAT-Suite are
         stored in 1-D arrays in a compressed format. With this method, the variables
-        are decompressed and returned as a 1-D list. The method also adjusts
-        special boundary condition settings which are partly implemented as
-        negative values of pressure, porosity and permeability.
-
-        Decide if necessary!!! Use HDF for output...so rewrite
+        are decompressed and returned as a 1-D list.
         """
+        for (i,l) in enumerate(self.filelines):
+            if var_name in l:
+
 
     def set(self, var_name, value, line=1):
         """
         Set a SHEMAT-Suite variable to a specific value
 
-        **Arguments**:
-            - *var_name* = string: name of SHEMAT-Suite variable
-            - *value* = string or number: variable value
+        Arguments:
+            :param var_name:    string, name of SHEMAT-Suite variable
+            :param value:       string or number, variable value
+
+        :param line:        *optional* integer, for multiline variables
         """
-        for (i,j) in enumerate(self.filelines):
+        for (i, j) in enumerate(self.filelines):
             if var_name in j:
-                self.filelines[i+line] = str(value) + "\n"
+                self.filelines[i + line] = str(value) + " \n"
+        if not any(var_name in l for l in self.filelines):
+            self.filelines.append("# " + str(var_name) + " \n")
+            self.filelines.append(str(value) + " \n")
+
 
     def set_array(self, var_name, value_list, **kwargs):
         value = ""
@@ -182,7 +200,7 @@ class SHEMATSuiteFile:
                 n = 1
                 for (j, val) in enumerate(value_list):
                     try:
-                        if val == value_list[j+1]:
+                        if val == value_list[j + 1]:
                             n += 1
                             continue
                     except IndexError:
@@ -192,20 +210,23 @@ class SHEMATSuiteFile:
                             nx = value_list[0]
                             ny = value_list[1]
                             nz = value_list[2]
-                            value += "%d " % val
-                            nxyz = nx*ny*nz
+                            value += "{0:d} ".format(val)
+                            nxyz = nx * ny * nz
                             try:
                                 tinit = self.get('temp init').rsplit()[0]
                             except AttributeError:
+                                pass
                                 print("temp init not found")
                             try:
                                 hinit = self.get('head init').rsplit()[0]
                             except AttributeError:
+                                pass
                                 print("head init not found")
                             try:
                                 pinit = self.get('pres init').rsplit()[0]
                             except AttributeError:
-                                print("pres init not found")
+                                pass
+                                #print("pres init not found")
                             try:
                                 delx = self.get('delx').rsplit()[0]
                                 dely = self.get('dely').rsplit()[0]
@@ -213,74 +234,35 @@ class SHEMATSuiteFile:
                             except AttributeError:
                                 pass
                         else:
-                            value += "%.2f " % val
+                            value += "{} ".format(val)
                     else:
-                        value += "%d*%.2f " % (n, val)
+                        value += "{0:d}*{} ".format(n, val)
                     n = 1
-                self.filelines[i+1] = value + '\n'
+                self.filelines[i + 1] = value + '\n'
                 if var_name == 'grid':
                     try:
-                        self.set('temp init', '%d*%s' % (nxyz,tinit.split('*')[1]))
+                        self.set('temp init', '{0:d}*{0:s}'.format(nxyz, tinit.split('*')[1]))
                     except:
                         pass
                     try:
-                        self.set('head init', '%d*%s' % (nxyz,hinit.split('*')[1]))
+                        self.set('head init', '{0:d}*{0:s}'.format(nxyz, hinit.split('*')[1]))
                     except:
                         pass
                     try:
-                        self.set('pres init', '%d*%s' % (nxyz,pinit.split('*')[1]))
+                        self.set('pres init', '{0:d}*{0:s}'.format(nxyz, pinit.split('*')[1]))
                     except:
                         pass
                     try:
-                        self.set('delx', '%d*%s' % (nx, delx.split('*')[1]))
-                        self.set('dely', '%d*%s' % (ny, dely.split('*')[1]))
-                        self.set('delz', '%d*%s' % (nz, delz.split('*')[1]))
+                        self.set('delx', '{0:d}*{0:s}'.format(nx, delx.split('*')[1]))
+                        self.set('dely', '{0:d}*{0:s}'.format(ny, dely.split('*')[1]))
+                        self.set('delz', '{0:d}*{0:s}'.format(nz, delz.split('*')[1]))
                     except:
                         raise AttributeError
 
-
-
-
-    def set_grid(self, grid_data):
-        new_nx, new_ny, new_nz = grid_data
-        if new_nx != self._nx:
-            print("nx is not the right dimension!")
-            raise AttributeError
-        if new_ny != self._ny:
-            print("nx is not the right dimension!")
-            raise AttributeError
-        self._grid_data = grid_data
-
-    def get_grid(self):
-        return self._grid_data
-
-    def update_extent(self):
-        # first: check if both number of cells and cell widths are already defined
-        if hasattr(self, '_delx') and hasattr(self, '_nx'):
-            self._extent_x = self._nx * self._dx
-            self._extent_y = self._ny * self._dy
-            self._extent_z = self._nz * self._dz
-
-    def get_extent(self):
-        return (self._extent_x, self._extent_y, self._extent_z)
-
-    def set_nxnynz(self, nx, ny, nz):
-        self._nx = nx
-        self._ny = ny
-        self._nz = nz
-        self.update_extent()
-
-    def get_nxnynz(self):
-        return (self._nx, self._ny, self._nz)
-
-    def set_dxdydz(self, dx, dy, dz):
-        self._dx = dx
-        self._dy = dy
-        self._dz = dz
-        self.update_extent()
-
-    def get_dxdy(self):
-        return (self._dx, self._dy, self._dz)
+        if not any(var_name in l for l in self.filelines):
+            self.filelines.append("# " + str(var_name) + " \n")
+            s = (' '.join(str(e) for e in value_list) + " \n")
+            self.filelines.append(s)
 
     def get_cell_boundaries(self):
         """
@@ -295,7 +277,7 @@ class SHEMATSuiteFile:
         laststep = 0
         b.append(laststep)
         for step in delx:
-            b.append(laststep+step)
+            b.append(laststep + step)
             laststep += step
         self.boundaries_x = b
         # y
@@ -303,7 +285,7 @@ class SHEMATSuiteFile:
         laststep = 0
         b.append(laststep)
         for step in dely:
-            b.append(laststep+step)
+            b.append(laststep + step)
             laststep += step
         self.boundaries_y = b
         # z
@@ -311,10 +293,9 @@ class SHEMATSuiteFile:
         laststep = 0
         b.append(laststep)
         for step in delz:
-            b.append(laststep+step)
+            b.append(laststep + step)
             laststep += step
         self.boundaries_z = b
-
 
     def get_cell_centres(self):
         """
@@ -327,26 +308,30 @@ class SHEMATSuiteFile:
         # calculate cell centres for each dimension
         self.centre_x = []
         for i in range(len(self.boundaries_x[:-1])):
-            self.centre_x.append((self.boundaries_x[i+1]-self.boundaries_x[i])/2.+self.boundaries_x[i])
+            self.centre_x.append((self.boundaries_x[i + 1] - self.boundaries_x[i]) / 2. + self.boundaries_x[i])
         self.centre_y = []
         for i in range(len(self.boundaries_y[:-1])):
-            self.centre_y.append((self.boundaries_y[i+1]-self.boundaries_y[i])/2.+self.boundaries_y[i])
+            self.centre_y.append((self.boundaries_y[i + 1] - self.boundaries_y[i]) / 2. + self.boundaries_y[i])
         self.centre_z = []
         for i in range(len(self.boundaries_z[:-1])):
-            self.centre_z.append((self.boundaries_z[i+1]-self.boundaries_z[i])/2.+self.boundaries_z[i])
+            self.centre_z.append((self.boundaries_z[i + 1] - self.boundaries_z[i]) / 2. + self.boundaries_z[i])
 
-
-
-    def create_structure_from_voxel(self, filename):
+    def create_structure_from_voxel(self, filename, ret=False):
         """
         Create a uindex structure field from a voxel file exported from GeoModeller.
-        **Arguments**
-        *filename*: string: name of .vox file
+        Also creates three files with boundary conditions for the top of the model (dirichlet) for
+        temperature, head, and pressure.
+
+        Arguments
+            :param filename: string, name of .vox file
+            :param ret:         boolean, if true, method gives return
 
         **Returns**
-        *info*:dictionary of model info, delxyz, nxyz, x0y0z0 etc
-        *s*: string with uindex-field
-        *TOP_BC_XX*:files with optional top bcs for surface topography
+        :return:
+            info:           dictionary of model info, delxyz, nxyz, x0y0z0 etc
+            uindex_str:     string with uindex-field
+            unui:           dictionary with Unit-name <-> Uindex connection
+            TOP_BC_XX:      external files automatically created with optional top bcs for surface topograpy
         """
         if filename[-4:] != ".vox":
             print("Not a valid voxel file (no .vox ending).")
@@ -354,16 +339,16 @@ class SHEMATSuiteFile:
             raise IOError("Invalid file type.")
         else:
             with open(filename) as f:
-                data = [line.split() for line in f]
-                info = dict((var.strip(), float(num.strip())) for var, num in data[0:9])
+                self.data = [line.split() for line in f]
+                self.info = dict((var.strip(), float(num.strip())) for var, num in self.data[0:9])
 
-                if data[9] == ['nodata_value','out']:
+                if self.data[9] == ['nodata_value', 'out']:
                     print("Warning: nodata_value in line 9.")
                     print("There are cells above the surface.")
                     print("See TOP_BC_{} for boundary conditions.".format(f.name[:-4]))
-                    units = list(itertools.chain(*data[10:]))
+                    self.units = list(itertools.chain(*self.data[10:]))
                 else:
-                    units = list(itertools.chain(*data[9:]))
+                    self.units = list(itertools.chain(*self.data[9:]))
 
             try:
                 fT = open("TOP_BC_{}.temp".format(f.name[:-4]), 'w')
@@ -374,13 +359,13 @@ class SHEMATSuiteFile:
                 print("Can not open file TOP_BC_{}.head for writing".format(f.name[:-4]))
                 print("Can not open file TOP_BC_{}.pres for writing".format(f.name[:-4]))
 
-            nxyz = int(info['nx'] * info['ny'] * info['nz'])
-            unui = {}
+            self.nxyz = int(self.info['nx'] * self.info['ny'] * self.info['nz'])
+            self.unui = {}
             uindex = 1
             count = 1
-            form = units[0]
+            form = self.units[0]
             uindex_field = []
-            s = ""
+            self.uindex_str = ""
             ix = 1
             iy = 1
             iz = 1
@@ -388,30 +373,30 @@ class SHEMATSuiteFile:
             lapserate = -0.0065
             t_surf = 286.15
 
-            for i in range(1, nxyz):
-                if units[i] not in unui:  # if the unit is not in the dictionary, add it
-                    unui.update({units[i]: uindex})
-                    uname = units[i]
+            for i in range(1, self.nxyz):
+                if self.units[i] not in self.unui:  # if the unit is not in the dictionary, add it
+                    self.unui.update({self.units[i]: uindex})
+                    self.uname = self.units[i]
                     uindex += 1  # increase the uindex for shemat
 
-                if units[i] == units[i - 1]:  # count up the units found in the voxel file
+                if self.units[i] == self.units[i - 1]:  # count up the units found in the voxel file
                     count += 1
                 else:
                     # print("{}*{}".format(count,unui[units[i-1]]))
                     # append the units and write it in the format x*y until a new
                     # unit is reached
-                    uindex_field.append("{}*{}".format(count, unui[units[i - 1]]))
-                    s += "{}*{} ".format(count, unui[units[i - 1]])
+                    uindex_field.append("{}*{}".format(count, self.unui[self.units[i - 1]]))
+                    self.uindex_str += "{}*{} ".format(count, self.unui[self.units[i - 1]])
                     count = 1
-                if i == (nxyz - 1):
+                if i == (self.nxyz - 1):
                     # print("{}*{}".format(count,unui[units[i]]))
                     # don't forget to include the last unit
-                    uindex_field.append("{}*{}".format(count, unui[units[i]]))
-                    s += "{}*{}".format(count, unui[units[i]])
+                    uindex_field.append("{}*{}".format(count, self.unui[self.units[i]]))
+                    self.uindex_str += "{}*{}".format(count, self.unui[self.units[i]])
 
-                if ix < info['nx']:
+                if ix < self.info['nx']:
                     ix += 1
-                elif iy < info['ny']:
+                elif iy < self.info['ny']:
                     ix = 1
                     iy += 1
                 else:
@@ -419,48 +404,24 @@ class SHEMATSuiteFile:
                     iy = 1
                     iz += 1
 
-                if (units[i] == 'out' and iz < info['nz']) or iz == info['nz']:
+                if (self.units[i] == 'out' and iz < self.info['nz']) or iz == self.info['nz']:
                     fT.write("{} {} {} {} 0 \n".format(ix, iy, iz,
-                                                       ((iz * info['dz'] + info['z0']) * lapserate + t_surf - 273.15)))
+                                                       ((iz * self.info['dz'] + self.info['z0']) * lapserate + t_surf - 273.15)))
                     fh.write("{} {} {} {} 0 \n".format(ix, iy, iz, head))
                     fp.write("{} {} {} {} 0 \n".format(ix, iy, iz, 0.101325))
                 else:
-                    head = iz * info['dz']
+                    head = iz * self.info['dz']
                     # pres = p0 * (1 + lapserate/t_surf * (iz*info['dz'] + info['z0']))**((-scipy.constants.g*0.0289644)/(lapserate*scipy.constants.R))
 
-            #un_counts = collections.Counter(units)
+            # un_counts = collections.Counter(units)
             fT.close()
             fh.close()
             fp.close()
-            return info, s
+            if ret == True:
+                return self.info, self.uindex_str, self.unui
 
 
-    def read_monitor_as_dataframe(self, filename):
-        """
-        Routine to read the monitoring points of a transient SHEMAT-Suite simulation, returning an array of recorded
-        values
-        param filename: string: name of monitoring file
-               varname: string or list of strings: name of variables to be loaded
-        return: monitoring file: dataframe containing all information of the monitoring file
-        """
-        # replace any % comments with
-        if sys.version_info.major == 2:
-            print("Seems you still work with Python 2.7.")
-            print("You should consider moving to Version 3.x")
-            fid = fileinput.FileInput(filename, inplace=True, backup='.bak')
-            for line in fid:
-                print(line.replace('%', ''))
-        elif sys.version_info.major == 3:
-            with fileinput.FileInput(filename, inplace=True, backup='.bak') as fid:
-                for line in fid:
-                    print(line.replace('%', ''))
-
-
-        # load dataframe
-        datframe = pandas.read_csv(filename, delim_whitespace=True)
-        return datframe
-
-def create_empty_model(**kwargs):
+def create_standard_model(**kwargs):
     """
     Create a new SHEMAT-Suite model based on given grid and boundary conditions given.
 
@@ -588,7 +549,7 @@ default_model
         S1.filelines.append(line + '\n')
 
     if 'transient' in kwargs and kwargs['transient'] == True:
-        S1.set("timestep control",1)
+        S1.set("timestep control", 1)
     if 'title' in kwargs:
         title = kwargs['title']
     else:
@@ -597,3 +558,5 @@ default_model
 
     S1.write_file(filename)
     return S1
+
+
