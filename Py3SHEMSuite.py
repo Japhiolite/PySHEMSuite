@@ -170,8 +170,9 @@ class SHEMATSuiteFile:
         stored in 1-D arrays in a compressed format. With this method, the variables
         are decompressed and returned as a 1-D list.
         """
-        for (i,l) in enumerate(self.filelines):
-            if var_name in l:
+        #for (i,l) in enumerate(self.filelines):
+        #    if var_name in l:
+        pass
 
 
     def set(self, var_name, value, line=1):
@@ -193,6 +194,13 @@ class SHEMATSuiteFile:
 
 
     def set_array(self, var_name, value_list, **kwargs):
+        """
+        Set a value array
+        :param var_name:  string, variable name
+        :param value_list:
+        :param kwargs:
+        :return:
+        """
         value = ""
         for (i, l) in enumerate(self.filelines):
             # construct variable in correct format with multiplier "*"
@@ -201,8 +209,9 @@ class SHEMATSuiteFile:
                 for (j, val) in enumerate(value_list):
                     try:
                         if val == value_list[j + 1]:
-                            n += 1
-                            continue
+                            if var_name != 'grid':
+                                n += 1
+                                continue
                     except IndexError:
                         pass
                     if n == 1:
@@ -210,7 +219,7 @@ class SHEMATSuiteFile:
                             nx = value_list[0]
                             ny = value_list[1]
                             nz = value_list[2]
-                            value += "{0:d} ".format(val)
+                            value += "{} ".format(val)
                             nxyz = nx * ny * nz
                             try:
                                 tinit = self.get('temp init').rsplit()[0]
@@ -236,26 +245,26 @@ class SHEMATSuiteFile:
                         else:
                             value += "{} ".format(val)
                     else:
-                        value += "{0:d}*{} ".format(n, val)
+                        value += "{}*{} ".format(n, val)
                     n = 1
                 self.filelines[i + 1] = value + '\n'
                 if var_name == 'grid':
                     try:
-                        self.set('temp init', '{0:d}*{0:s}'.format(nxyz, tinit.split('*')[1]))
+                        self.set('temp init', '{}*{}'.format(nxyz, tinit.split('*')[1]))
                     except:
                         pass
                     try:
-                        self.set('head init', '{0:d}*{0:s}'.format(nxyz, hinit.split('*')[1]))
+                        self.set('head init', '{}*{}'.format(nxyz, hinit.split('*')[1]))
                     except:
                         pass
                     try:
-                        self.set('pres init', '{0:d}*{0:s}'.format(nxyz, pinit.split('*')[1]))
+                        self.set('pres init', '{}*{}'.format(nxyz, pinit.split('*')[1]))
                     except:
                         pass
                     try:
-                        self.set('delx', '{0:d}*{0:s}'.format(nx, delx.split('*')[1]))
-                        self.set('dely', '{0:d}*{0:s}'.format(ny, dely.split('*')[1]))
-                        self.set('delz', '{0:d}*{0:s}'.format(nz, delz.split('*')[1]))
+                        self.set('delx', '{}*{}'.format(nx, delx.split('*')[1]))
+                        self.set('dely', '{}*{}'.format(ny, dely.split('*')[1]))
+                        self.set('delz', '{}*{}'.format(nz, delz.split('*')[1]))
                     except:
                         raise AttributeError
 
@@ -341,6 +350,13 @@ class SHEMATSuiteFile:
             with open(filename) as f:
                 self.data = [line.split() for line in f]
                 self.info = dict((var.strip(), float(num.strip())) for var, num in self.data[0:9])
+                try:
+                    self.info['nx'] = int(self.info['nx'])
+                    self.info['ny'] = int(self.info['ny'])
+                    self.info['nz'] = int(self.info['nz'])
+                except TypeError:
+                    print("Error generating integer nx, ny, nz.")
+
 
                 if self.data[9] == ['nodata_value', 'out']:
                     print("Warning: nodata_value in line 9.")
@@ -405,10 +421,10 @@ class SHEMATSuiteFile:
                     iz += 1
 
                 if (self.units[i] == 'out' and iz < self.info['nz']) or iz == self.info['nz']:
-                    fT.write("{} {} {} {} 0 \n".format(ix, iy, iz,
+                    fT.write("{} {} {} {:.5f} 0 \n".format(ix, iy, iz,
                                                        ((iz * self.info['dz'] + self.info['z0']) * lapserate + t_surf - 273.15)))
-                    fh.write("{} {} {} {} 0 \n".format(ix, iy, iz, head))
-                    fp.write("{} {} {} {} 0 \n".format(ix, iy, iz, 0.101325))
+                    fh.write("{} {} {} {:.5f} 0 \n".format(ix, iy, iz, head))
+                    fp.write("{} {} {} {:.5f} 0 \n".format(ix, iy, iz, 0.101325))
                 else:
                     head = iz * self.info['dz']
                     # pres = p0 * (1 + lapserate/t_surf * (iz*info['dz'] + info['z0']))**((-scipy.constants.g*0.0289644)/(lapserate*scipy.constants.R))
