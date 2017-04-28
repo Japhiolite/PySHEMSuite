@@ -25,7 +25,7 @@ import matplotlib as m
 # import scipy.constants
 import itertools
 # import collections
-# import pandas
+import pandas as p
 # import fileinput
 # import re
 
@@ -435,6 +435,107 @@ class SHEMATSuiteFile:
             fp.close()
             if ret == True:
                 return self.info, self.uindex_str, self.unui
+
+def create_layercake(num_layers,**kwargs):
+    """
+    Method to create an example layercake model with n horizontal units
+    :param num_layers: integer, number of units
+    :return: string, Input File
+    """
+
+    verbose = kwargs.get("verbose", False)
+    lcake = SHEMATSuiteFile()
+    lcake.filelines = []
+    lines = """!==========>>>>> MODEL INFO
+    # title
+    layercake_model
+    # linfo
+    1 1 1 1
+    # runmode
+    0
+    # USER=none
+    # PROPS=bas
+    # active temp head
+
+    !==========>>>>> I/O
+    # file output hdf vtk
+
+    !==========>>>>> MESH in meters
+    # grid
+    50 50 20
+    # delx
+    50*50
+    # dely
+    50*50
+    # delz
+    20*50
+
+    !==========>>>>> TIME STEP
+    # timestep control
+    0
+    1.0 1.0 1.0 0.0
+
+    !==========>>>>> NONLINEAR SOLVER
+    # nlsolve
+    100 0
+
+    !==========>>>>> FLOW
+    # lsolvef (linear solver control)
+    1.d-11 64 300
+    # nliterf (nonlinear iteration control)
+    1.0d-9 1.
+
+    !==========>>>>> TEMPERATURE
+    # lsolvet (linear solver control)
+    1.d-11 64 300
+    # nlitert (nonlinear iteration control)
+    1.0d-9 1.
+
+    !==========>>>>> BOUNDARY CONDITIONS
+
+    # head bcd	simple=top error=ignore
+    2500*1000.d0
+
+    # temp bcd simple=top error=ignore
+    2500*11
+    # temp bcn simple=base error=ignore
+    2500*0.06
+
+    !==========>>>>> INITIAL VALUES
+    # head init
+    50000*1000.0d0
+    # temp init
+    50000*50.0d0
+
+    !==========>>>>> UNIT DESCRIPTION
+    # units
+    0.06 1.0 1.0 1.0e-15 1.0e-10 1.0 1.0 2.0 0.0 2.0e6 10.0 0.0 0.0 2.0 1.03 0.050 0.20
+    # uindex
+    1000*1
+    """
+
+    if 'filename' in kwargs:
+        filename = kwargs['filename']
+    else:
+        filename = "layer_cake_model"
+    units = {'!Porosity': 0.1,
+             'kxz': 1.0,
+             'kyz': 1.0,
+             'kz': 1.0e-15,
+             'Compressibility': 1.0e-10,
+             'lxz': 1.0,
+             'lyz': 1.0,
+             'lz': 2.1,
+             'Heat Prod rate': 0.4e-6,
+             'thermal capacity': 2.0e6,
+             'dispersivity': 10.0,
+             'Electric cond': 0.0,
+             'coupling coeff': 0.0,
+             'BC-parameter': 2.0,
+             'Capillary pressure': 1.0e3,
+             'res saturation non-wet': 0.05,
+             'res saturation wet': 0.2}
+
 
 
 def create_standard_model(**kwargs):
