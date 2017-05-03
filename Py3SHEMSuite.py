@@ -20,7 +20,7 @@ For module, update and documentation of PySHEMAT-Suite, see the Git-repository.
 
 import os, sys
 import matplotlib as m
-# import numpy as np
+import numpy as np
 # import h5py
 # import scipy.constants
 import itertools
@@ -50,7 +50,7 @@ class SHEMATSuiteFile:
 
         """
         if filename == '':
-            print("creating empty file")
+            print("creating new Input file")
             self.filelines = ['!===>>Empty model input created with PySHEMSuite \n',
                               '# title \n',
                               'Empty_input_file \n']
@@ -59,9 +59,7 @@ class SHEMATSuiteFile:
         else:
             self.filelines = self.read_file(filename)
             self.filename = filename
-            self.idim = int(self.get("grid").split()[0])
-            self.jdim = int(self.get("grid").split()[1])
-            self.kdim = int(self.get("grid").split()[2])
+            self._nx, self._ny, self._nz = self.get('grid').split()
         if 'offscreen' in kwargs and kwargs['offscreen']:
             m.use('Agg')
         if sys.version_info.major == 2:
@@ -71,7 +69,7 @@ class SHEMATSuiteFile:
         elif sys.version_info.major == 3:
             print("Python 3, good to go!")
 
-    def __repr__(self, **kwargs):
+    def __str__(self, **kwargs):
         """
         Print function of the Basic Input File components if an existing SHEMAT-Suite file is loaded
             :param kwargs:
@@ -79,14 +77,27 @@ class SHEMATSuiteFile:
         :return: info_string: string, containing information about model dimensions, active variables, etc
         """
         # basic information
-        if hasattr(self, '_nx') and hasattr(self, '_ny'):
-            info_string = "Model object with 2D grid data \n"
+        info_string = "SHEMAT-Suite object"
+        try:
+            info_string = "Model object with these parameters: \n"
             # info on grid cells, spacing, extent
-            info_string += "Number of cells \t = (%d, %d)\n" % (self._nx, self._ny)
-            info_string += "Cell dimensions \t = (%.1f, %.1f)\n" % (self._dx, self._dy)
-            info_string += "Grid extent \t = (%.1f, %.1f)\n" % (self._extent_x, self._extent_y)
-        else:
-            info_string = "There is no model info yet!"
+            #try:
+            #    info_string += "Number of cells \t = nx:{}, ny:{}, nz:{}\n".format(self._nx, self._ny, self._nz)
+            #    info_string += "Cell dimensions \t = dx:{} m, dy:{} m, dz:{} m\n".format(self._dx, self._dy, self._dz)
+            #    info_string += "Grid extent \t = x:{} m, y:{} m, z:{} m\n".format(self._nx*self._dx, self._ny*self._dy, self._nz*self._dz)
+            #except:
+            self._nx, self._ny, self._nz = [int(it) for it in self.get('grid').split()]
+            info_string += "Number of cells \t = nx:{}, ny:{}, nz:{}\n".format(self._nx, self._ny, self._nz)
+            self._dx = int(self.get('delx').split('*')[1].rstrip())
+            self._dy = int(self.get('dely').split('*')[1].rstrip())
+            self._dz = int(self.get('delz').split('*')[1].rstrip())
+            info_string += "Cell dimensions \t = dx:{} m, dy:{} m, dz:{}\n".format(self._dx, self._dy, self._dz)
+            info_string += "Grid extent \t \t = x:{} m, y:{} m, z:{} m\n \n".format(self._nx*self._dx,self._ny*self._dy,self._nz*self._dz)
+            info_string += "Property module \t = {} \n".format(self.get('PROPS').rstrip())
+            info_string += "User \t \t \t = {} \n".format(self.get('USER').rstrip())
+            info_string += "active equations \t = {}, {}".format(*self.get('active'))
+        except:
+            info_string = 'Not all model grid information yet!'
 
         return info_string
 
@@ -153,6 +164,12 @@ class SHEMATSuiteFile:
         """
         for (i, j) in enumerate(self.filelines):
             if var_name in j:
+                if var_name == 'PROPS':
+                    return self.filelines[i].split('=')[1]
+                if var_name == 'USER':
+                    return self.filelines[i].split('=')[1]
+                if var_name == 'active':
+                    return self.filelines[i].split()[1:]
                 if line == 1:
                     return self.filelines[i + 1]
                     break
@@ -436,105 +453,170 @@ class SHEMATSuiteFile:
             if ret == True:
                 return self.info, self.uindex_str, self.unui
 
-def create_layercake(num_layers,**kwargs):
+def create_layercake(num_layers,dp=True,**kwargs):
     """
     Method to create an example layercake model with n horizontal units
     :param num_layers: integer, number of units
+    :param dp: Boolean, if string should be transformed to Fortran double precision "d0"
     :return: string, Input File
     """
 
     verbose = kwargs.get("verbose", False)
-    lcake = SHEMATSuiteFile()
+    lcake = SHEMATSuiteFile(new_filename='layer_cake_model')
     lcake.filelines = []
     lines = """!==========>>>>> MODEL INFO
-    # title
-    layercake_model
-    # linfo
-    1 1 1 1
-    # runmode
-    0
-    # USER=none
-    # PROPS=bas
-    # active temp head
+# title
+layercake_model
+# linfo
+1 1 1 1
+# runmode
+0
+# USER=none
+# PROPS=bas
+# active temp head
 
-    !==========>>>>> I/O
-    # file output hdf vtk
+!==========>>>>> I/O
+# file output hdf vtk
 
-    !==========>>>>> MESH in meters
-    # grid
-    50 50 20
-    # delx
-    50*50
-    # dely
-    50*50
-    # delz
-    20*50
+!==========>>>>> MESH in meters
+# grid
+50 50 20
+# delx
+50*50
+# dely
+50*50
+# delz
+20*50
 
-    !==========>>>>> TIME STEP
-    # timestep control
-    0
-    1.0 1.0 1.0 0.0
+!==========>>>>> TIME STEP
+# timestep control
+0
+1.0 1.0 1.0 0.0
 
-    !==========>>>>> NONLINEAR SOLVER
-    # nlsolve
-    100 0
+!==========>>>>> NONLINEAR SOLVER
+# nlsolve
+100 0
 
-    !==========>>>>> FLOW
-    # lsolvef (linear solver control)
-    1.d-11 64 300
-    # nliterf (nonlinear iteration control)
-    1.0d-9 1.
+!==========>>>>> FLOW
+# lsolvef (linear solver control)
+1.d-10 64 300
+# nliterf (nonlinear iteration control)
+1.0d-8 1.
 
-    !==========>>>>> TEMPERATURE
-    # lsolvet (linear solver control)
-    1.d-11 64 300
-    # nlitert (nonlinear iteration control)
-    1.0d-9 1.
+!==========>>>>> TEMPERATURE
+# lsolvet (linear solver control)
+1.d-9 64 300
+# nlitert (nonlinear iteration control)
+1.0d-7 1.
 
-    !==========>>>>> BOUNDARY CONDITIONS
+!==========>>>>> BOUNDARY CONDITIONS
 
-    # head bcd	simple=top error=ignore
-    2500*1000.d0
+# head bcd	simple=top error=ignore
+2500*1000.d0
 
-    # temp bcd simple=top error=ignore
-    2500*11
-    # temp bcn simple=base error=ignore
-    2500*0.06
+# temp bcd simple=top error=ignore
+2500*11
+# temp bcn simple=base error=ignore
+2500*0.06
 
-    !==========>>>>> INITIAL VALUES
-    # head init
-    50000*1000.0d0
-    # temp init
-    50000*50.0d0
+!==========>>>>> INITIAL VALUES
+# head init
+50000*1000.0d0
+# temp init
+50000*50.0d0
 
-    !==========>>>>> UNIT DESCRIPTION
-    # units
-    0.06 1.0 1.0 1.0e-15 1.0e-10 1.0 1.0 2.0 0.0 2.0e6 10.0 0.0 0.0 2.0 1.03 0.050 0.20
-    # uindex
-    1000*1
-    """
+!==========>>>>> UNIT DESCRIPTION
+# units
+0.1 1.0 1.0 1.0e-15 1.0e-10 1.0 1.0 2.1 0.4e-6 2.0e6 10.0 0.0 0.0 2.0 1.0e3 0.05 0.2
+# uindex
+1000*1
+"""
 
     if 'filename' in kwargs:
         filename = kwargs['filename']
     else:
         filename = "layer_cake_model"
-    units = {'!Porosity': 0.1,
-             'kxz': 1.0,
-             'kyz': 1.0,
-             'kz': 1.0e-15,
-             'Compressibility': 1.0e-10,
-             'lxz': 1.0,
-             'lyz': 1.0,
-             'lz': 2.1,
-             'Heat Prod rate': 0.4e-6,
-             'thermal capacity': 2.0e6,
-             'dispersivity': 10.0,
-             'Electric cond': 0.0,
-             'coupling coeff': 0.0,
-             'BC-parameter': 2.0,
-             'Capillary pressure': 1.0e3,
-             'res saturation non-wet': 0.05,
-             'res saturation wet': 0.2}
+
+    for line in lines.split(('\n')):
+        if verbose:
+            print(line)
+        lcake.filelines.append(line + '\n')
+
+
+    if num_layers == 1:
+        pass
+    else:
+        units = {'!Porosity': 0.1,
+                 'kxz': 1.0,
+                 'kyz': 1.0,
+                 'kz': 1.0e-15,
+                 'Compressibility': 1.0e-10,
+                 'lxz': 1.0,
+                 'lyz': 1.0,
+                 'lz': 2.1,
+                 'Heat Prod rate': 0.4e-6,
+                 'thermal capacity': 2.0e6,
+                 'dispersivity': 10.0,
+                 'Electric cond': 0.0,
+                 'coupling coeff': 0.0,
+                 'BC-parameter': 2.0,
+                 'Capillary pressure': 1.0e3,
+                 'res saturation non-wet': 0.05,
+                 'res saturation wet': 0.2}
+
+        df = p.DataFrame([units], columns=list(units.keys()))
+        add_unit = []
+        for i in range(num_layers-1):
+            add_unit.append([np.random.normal(loc=0.1,scale=0.05),
+                             1.0,
+                             1.0,
+                             np.random.lognormal(mean=1.0,sigma=3)*10**-15,
+                             np.random.normal(loc=1.0e-10,scale=5.0e-11),
+                             1.0,
+                             1.0,
+                             np.random.normal(loc=2.2,scale=0.6),
+                             np.random.normal(loc=1.0e-7,scale=2.0e-8),
+                             np.random.normal(loc=2.0e6, scale=1.0e5),
+                             np.random.normal(loc=10., scale=3.),
+                             0.0,
+                             0.0,
+                             2.0,
+                             np.random.normal(loc=1.0e3,scale=2.0e2),
+                             0.0,
+                             0.0])
+        df2 = p.DataFrame(add_unit,columns=list(units.keys()))
+        df = df.append(df2, ignore_index=True)
+        df_string = df.to_string(index=False,justify='left',header=False)
+
+        if dp == True:
+            df_string = df_string.replace('e-','d-')
+            df_string = df_string.replace('e+','d+')
+
+        lcake.set('units',df_string)
+
+        i,j,k = lcake.get('grid').split()
+        i = int(i)
+        j = int(j)
+        k = int(k)
+        layer_thickness = np.round(k/num_layers,0)
+        cum_thickness = 0
+        uindex = ''
+
+        if k % num_layers == 0:
+            for num in range(1,num_layers+1):
+                uindex += str(int(layer_thickness*i*j))+'*'+str(num)+' '
+        else:
+            count = 0
+            for num in range(1,num_layers):
+                uindex += str(int(layer_thickness*i*j))+'*'+str(num)+' '
+                count += layer_thickness
+            uindex += str(int((k-count)*i*j))+'*'+str(num_layers)
+
+        lcake.set('uindex',uindex)
+
+        return lcake
+
+
 
 
 
