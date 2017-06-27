@@ -1,7 +1,0 @@
-!===>>Empty model input created with PySHEMSuite 
-# title 
-Empty_input_file 
-# lsolvef 
-1.d-12 64 300 
-# grid 
-10 25 5 
