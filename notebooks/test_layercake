@@ -1,0 +1,70 @@
+!==========>>>>> MODEL INFO
+# title
+layercake_model
+# linfo
+1 1 1 1
+# runmode
+0
+# USER=none
+# PROPS=bas
+# active temp head
+
+!==========>>>>> I/O
+# file output hdf vtk
+
+!==========>>>>> MESH in meters
+# grid
+50 50 20
+# delx
+50*50
+# dely
+50*50
+# delz
+20*50
+
+!==========>>>>> TIME STEP
+# timestep control
+0
+1.0 1.0 1.0 0.0
+
+!==========>>>>> NONLINEAR SOLVER
+# nlsolve
+100 0
+
+!==========>>>>> FLOW
+# lsolvef (linear solver control)
+1.d-10 64 300
+# nliterf (nonlinear iteration control)
+1.0d-8 1.
+
+!==========>>>>> TEMPERATURE
+# lsolvet (linear solver control)
+1.d-9 64 300
+# nlitert (nonlinear iteration control)
+1.0d-7 1.
+
+!==========>>>>> BOUNDARY CONDITIONS
+
+# head bcd	simple=top error=ignore
+2500*1000.d0
+
+# temp bcd simple=top error=ignore
+2500*11
+# temp bcn simple=base error=ignore
+2500*0.06
+
+!==========>>>>> INITIAL VALUES
+# head init
+50000*1000.0d0
+# temp init
+50000*50.0d0
+
+!==========>>>>> UNIT DESCRIPTION
+# units
+0.100000  1.0  1.0  1.000000d-15  1.000000d-10  1.0  1.0  2.100000  4.000000d-07  2.000000d+06  10.000000  0.0  0.0  2.0  1000.000000  0.05  0.2
+0.044051  1.0  1.0  3.293855d-16  4.388461d-11  1.0  1.0  2.328788  5.043065d-08  2.017177d+06  15.761835  0.0  0.0  2.0   896.231529  0.00  0.0
+0.088775  1.0  1.0  5.833444d-17  6.319740d-11  1.0  1.0  2.632574  8.887870d-08  1.999303d+06  12.084156  0.0  0.0  2.0  1367.232866  0.00  0.0
+0.134983  1.0  1.0  2.964061d-15  1.576278d-10  1.0  1.0  1.937899  6.932491d-08  1.919301d+06   5.375485  0.0  0.0  2.0  1175.786163  0.00  0.0 
+# uindex
+12500*1 12500*2 12500*3 12500*4  
+
