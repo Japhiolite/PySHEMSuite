@@ -176,6 +176,9 @@ class SHEMATSuiteFile:
                 else:
                     lines = []
                     for k in range(line):
+                        if self.filelines[i + 1 + k].startswith(("#","!","\n")):
+                            return lines
+                            break
                         lines.append(self.filelines[i + 1 + k])
                     return lines
                     break
@@ -342,7 +345,7 @@ class SHEMATSuiteFile:
         for i in range(len(self.boundaries_z[:-1])):
             self.centre_z.append((self.boundaries_z[i + 1] - self.boundaries_z[i]) / 2. + self.boundaries_z[i])
 
-    def create_structure_from_voxel(self, filepath, ret=False):
+    def create_structure_from_voxel(self, filename, ret=False):
         """
         Create a uindex structure field from a voxel file exported from GeoModeller.
         Also creates three files with boundary conditions for the top of the model (dirichlet) for
@@ -359,16 +362,12 @@ class SHEMATSuiteFile:
             unui:           dictionary with Unit-name <-> Uindex connection
             TOP_BC_XX:      external files automatically created with optional top bcs for surface topograpy
         """
-        if "\\" in filepath:
-            filepath = filepath.replace('\\','/')
-        filename = filepath.split('/')[-1]
-        print(type(filename),filename)
         if filename[-4:] != ".vox":
             print("Not a valid voxel file (no .vox ending).")
             print("Please check file name and if it is a .vox export from GeoModeller.")
             raise IOError("Invalid file type.")
         else:
-            with open(os.path.join(filepath)) as f:
+            with open(filename) as f:
                 self.data = [line.split() for line in f]
                 self.info = dict((var.strip(), float(num.strip())) for var, num in self.data[0:9])
                 try:
@@ -382,19 +381,19 @@ class SHEMATSuiteFile:
                 if self.data[9] == ['nodata_value', 'out']:
                     print("Warning: nodata_value in line 9.")
                     print("There are cells above the surface.")
-                    print("See TOP_BC_{} for boundary conditions.".format(filename[:-4]))
+                    print("See {}TOP_BC_{} for boundary conditions.".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]))
                     self.units = list(itertools.chain(*self.data[10:]))
                 else:
                     self.units = list(itertools.chain(*self.data[9:]))
 
             try:
-                fT = open("TOP_BC_{}.temp".format(filename[:-4]), 'w')
-                fh = open("TOP_BC_{}.head".format(filename[:-4]), 'w')
-                fp = open("TOP_BC_{}.pres".format(filename[:-4]), 'w')
+                fT = open("{}TOP_BC_{}.temp".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]), 'w')
+                fh = open("{}TOP_BC_{}.head".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]), 'w')
+                fp = open("{}TOP_BC_{}.pres".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]), 'w')
             except IOError:
-                print("Can not open file TOP_BC_{}.temp for writing".format(filename[:-4]))
-                print("Can not open file TOP_BC_{}.head for writing".format(filename[:-4]))
-                print("Can not open file TOP_BC_{}.pres for writing".format(filename[:-4]))
+                print("Can not open file {}TOP_BC_{}.temp for writing".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]))
+                print("Can not open file {}TOP_BC_{}.head for writing".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]))
+                print("Can not open file {}TOP_BC_{}.pres for writing".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]))
 
             self.nxyz = int(self.info['nx'] * self.info['ny'] * self.info['nz'])
             self.unui = {}
@@ -456,6 +455,75 @@ class SHEMATSuiteFile:
             fp.close()
             if ret == True:
                 return self.info, self.uindex_str, self.unui
+
+    def place_shape(self, filename, unitname, ret=False):
+        """
+        Modifies an existing (uniform) uindex-field with shape data extracted from
+        GeoModeller.
+
+            Arguments
+                :param filename: string, name of .wrl file
+                :param unitname: string, name of new unit
+                :param ret:      boolean, if true, method gives return
+
+            **Returns**
+            :return:
+                uindex_str:     string with modified uindex-field
+        """
+        if unitname in self.unui:
+            print("The chosen unitname '{}' is already taken - Placement aborted.".format(unitname))
+            return
+        with open(filename, 'r') as f:
+            shape = f.read()
+
+        # read-in-comprehension-voodoo
+        shape = shape[shape.find("point [") + 8:shape.find("]")]
+        shape = [line.rstrip(", ").split() for line in shape.splitlines()]
+
+        # plug coordinates in respective lists
+        x_shape, y_shape, z_shape = zip(*shape)
+
+        # to arrays
+        x_shape = np.array(x_shape, dtype=float)
+        y_shape = np.array(y_shape, dtype=float)
+        z_shape = np.array(z_shape, dtype=float)
+
+        # correct offset of model, divide by dxyz
+        x_shape = (x_shape - self.info['x0'] + self.info['dx']/2) / self.info['dx']
+        y_shape = (y_shape - self.info['y0'] + self.info['dy']/2) / self.info['dy']
+        z_shape = (z_shape - self.info['z0'] + self.info['dz']/2) / self.info['dz']
+
+        # floor to nearest int
+        x_shape = np.floor(x_shape)
+        y_shape = np.floor(y_shape)
+        z_shape = np.floor(z_shape)
+
+        # clip maximum value
+        np.place(x_shape, x_shape >= self.info['nx'], self.info['nx'] - 1)
+        np.place(y_shape, y_shape >= self.info['ny'], self.info['ny'] - 1)
+        np.place(z_shape, z_shape >= self.info['nz'], self.info['nz'] - 1)
+
+        # copy and unpack uindex
+        model = unpack(self.uindex_str.split())
+        model = np.reshape(np.array(model), (self.info['nx'], self.info['ny'], self.info['nz']), order='F')
+        for x, y, z in zip(x_shape, y_shape, z_shape):
+            model[int(x), int(y), int(z)] = len(self.unui) + 1
+
+        # flatten and re-write in *-notation
+        model = " ".join(collapse(model))
+        self.uindex_str = model
+        self.set("uindex",self.uindex_str)
+
+        # unit list handling
+        self.unui[unitname] = len(self.unui) + 1
+        self.filelines.insert(
+            self.filelines.index("# units\n") + len(self.unui),
+            '0.06 1.d0 1.d0 1.0d-15 1.0d-10 1.d0 1.d0 2.d0 0.d0 2.0d6 10.d0 0.d0 0.d0 2.d0 1.0d3 0.05d0 0.2d0\n')
+
+        if ret:
+            return self.uindex_str
+
+
 
 def create_layercake(num_layers,dp=True,**kwargs):
     """
@@ -763,3 +831,51 @@ default_model
     return S1
 
 
+def unpack(raw_list):
+    """
+    Takes a list in SHEMAT notation and splits it into its constituents.
+
+    Parameters
+    ----------
+    raw_list : list
+               A list of strings in the format 'X*Y' and/or 'Y' corresponding to SHEMAT short notation.
+
+    Returns
+    -------
+    list
+        A list of grid-matching (uncollapsed) ints.
+
+    """
+    splitlist = []
+    for element in raw_list:
+        if "*" in element:
+            splitlist.append(element.split("*"))
+        else:
+            splitlist.append(['1', element])
+
+    unpacked_temp = [[int(X)] * int(Y) for Y, X in splitlist]
+    unpacked_list = [item for pairs in unpacked_temp for item in pairs]
+
+    return unpacked_list
+
+
+def collapse(array3d):
+    """
+    Takes a 3-d field, flattens and re-writes it to SHEMAT short notation. 
+
+    Parameters
+    ----------
+    array3d : numpy-array
+               a 3-d array containing a (uindex) field mapped to the grid.
+
+    Returns
+    -------
+    list
+        A list of strings in SHEMAT short notation representing the unit information.
+
+    """
+    a = array3d.flatten('F')
+    sequence = [len(list(group)) for key, group in itertools.groupby(a)]
+    unit_id = [key for key, group in itertools.groupby(a)]
+    combined = ["%s*%s" % (pair) for pair in zip(sequence, unit_id)]
+    return combined
