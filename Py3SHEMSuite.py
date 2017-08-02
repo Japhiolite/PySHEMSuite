@@ -345,7 +345,7 @@ class SHEMATSuiteFile:
         for i in range(len(self.boundaries_z[:-1])):
             self.centre_z.append((self.boundaries_z[i + 1] - self.boundaries_z[i]) / 2. + self.boundaries_z[i])
 
-    def create_structure_from_voxel(self, filename, ret=False):
+    def create_structure_from_voxel(self, filepath, ret=False):
         """
         Create a uindex structure field from a voxel file exported from GeoModeller.
         Also creates three files with boundary conditions for the top of the model (dirichlet) for
@@ -362,12 +362,16 @@ class SHEMATSuiteFile:
             unui:           dictionary with Unit-name <-> Uindex connection
             TOP_BC_XX:      external files automatically created with optional top bcs for surface topograpy
         """
+        if "\\" in filepath:
+            filepath = filepath.replace('\\','/')
+        filename = filepath.split('/')[-1]
+        print(type(filename),filename)
         if filename[-4:] != ".vox":
             print("Not a valid voxel file (no .vox ending).")
             print("Please check file name and if it is a .vox export from GeoModeller.")
             raise IOError("Invalid file type.")
         else:
-            with open(filename) as f:
+            with open(os.path.join(filepath)) as f:
                 self.data = [line.split() for line in f]
                 self.info = dict((var.strip(), float(num.strip())) for var, num in self.data[0:9])
                 try:
@@ -381,19 +385,19 @@ class SHEMATSuiteFile:
                 if self.data[9] == ['nodata_value', 'out']:
                     print("Warning: nodata_value in line 9.")
                     print("There are cells above the surface.")
-                    print("See {}TOP_BC_{} for boundary conditions.".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]))
+                    print("See TOP_BC_{} for boundary conditions.".format(filename[:-4]))
                     self.units = list(itertools.chain(*self.data[10:]))
                 else:
                     self.units = list(itertools.chain(*self.data[9:]))
 
             try:
-                fT = open("{}TOP_BC_{}.temp".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]), 'w')
-                fh = open("{}TOP_BC_{}.head".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]), 'w')
-                fp = open("{}TOP_BC_{}.pres".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]), 'w')
+                fT = open("TOP_BC_{}.temp".format(filename[:-4]), 'w')
+                fh = open("TOP_BC_{}.head".format(filename[:-4]), 'w')
+                fp = open("TOP_BC_{}.pres".format(filename[:-4]), 'w')
             except IOError:
-                print("Can not open file {}TOP_BC_{}.temp for writing".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]))
-                print("Can not open file {}TOP_BC_{}.head for writing".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]))
-                print("Can not open file {}TOP_BC_{}.pres for writing".format(f.name[:filename.rfind("/") + 1],f.name[filename.rfind("/") + 1:-4]))
+                print("Can not open file TOP_BC_{}.temp for writing".format(filename[:-4]))
+                print("Can not open file TOP_BC_{}.head for writing".format(filename[:-4]))
+                print("Can not open file TOP_BC_{}.pres for writing".format(filename[:-4]))
 
             self.nxyz = int(self.info['nx'] * self.info['ny'] * self.info['nz'])
             self.unui = {}
