@@ -508,13 +508,13 @@ class SHEMATSuiteFile:
         np.place(z_shape, z_shape >= self.info['nz'], self.info['nz'] - 1)
 
         # copy and unpack uindex
-        model = unpack(self.uindex_str.split())
+        model = self.unpack(self.uindex_str.split())
         model = np.reshape(np.array(model), (self.info['nx'], self.info['ny'], self.info['nz']), order='F')
         for x, y, z in zip(x_shape, y_shape, z_shape):
             model[int(x), int(y), int(z)] = len(self.unui) + 1
 
         # flatten and re-write in *-notation
-        model = " ".join(collapse(model))
+        model = " ".join(self.collapse(model))
         self.uindex_str = model
         self.set("uindex",self.uindex_str)
 
@@ -524,8 +524,57 @@ class SHEMATSuiteFile:
             self.filelines.index("# units\n") + len(self.unui),
             '0.06 1.d0 1.d0 1.0d-15 1.0d-10 1.d0 1.d0 2.d0 0.d0 2.0d6 10.d0 0.d0 0.d0 2.d0 1.0d3 0.05d0 0.2d0\n')
 
-        if ret:
+        if ret==True:
             return self.uindex_str
+
+    def unpack(self, raw_list):
+        """
+        Takes a list in SHEMAT notation and splits it into its constituents.
+
+        Parameters
+        ----------
+        raw_list : list
+               A list of strings in the format 'X*Y' and/or 'Y' corresponding to SHEMAT short notation.
+
+        Returns
+        -------
+        array
+                An array of grid-matching (uncollapsed) ints. Can easily be manipulated afterwards.
+
+        """
+        splitlist = []
+        for element in raw_list:
+            if "*" in element:
+                splitlist.append(element.split("*"))
+            else:
+                splitlist.append(['1', element])
+
+        unpacked_temp = [[int(X)] * int(Y) for Y, X in splitlist]
+        self.unpacked_list = [item for pairs in unpacked_temp for item in pairs]
+
+        return np.array(self.unpacked_list)
+
+
+    def collapse(self, array3d):
+        """
+        Takes a 3-d field, flattens and re-writes it to SHEMAT short notation.
+
+        Parameters
+        ----------
+        array3d : numpy-array
+                   a 3-d array containing a (uindex) field mapped to the grid.
+
+        Returns
+        -------
+        list
+            A list of strings in SHEMAT short notation representing the unit information.
+
+        """
+        a = array3d.flatten('F')
+        sequence = [len(list(group)) for key, group in itertools.groupby(a)]
+        unit_id = [key for key, group in itertools.groupby(a)]
+        self.combined = ["%s*%s" % (pair) for pair in zip(sequence, unit_id)]
+        return self.combined
 
 
 
@@ -835,51 +884,3 @@ default_model
     return S1
 
 
-def unpack(raw_list):
-    """
-    Takes a list in SHEMAT notation and splits it into its constituents.
-
-    Parameters
-    ----------
-    raw_list : list
-               A list of strings in the format 'X*Y' and/or 'Y' corresponding to SHEMAT short notation.
-
-    Returns
-    -------
-    list
-        A list of grid-matching (uncollapsed) ints.
-
-    """
-    splitlist = []
-    for element in raw_list:
-        if "*" in element:
-            splitlist.append(element.split("*"))
-        else:
-            splitlist.append(['1', element])
-
-    unpacked_temp = [[int(X)] * int(Y) for Y, X in splitlist]
-    unpacked_list = [item for pairs in unpacked_temp for item in pairs]
-
-    return unpacked_list
-
-
-def collapse(array3d):
-    """
-    Takes a 3-d field, flattens and re-writes it to SHEMAT short notation. 
-
-    Parameters
-    ----------
-    array3d : numpy-array
-               a 3-d array containing a (uindex) field mapped to the grid.
-
-    Returns
-    -------
-    list
-        A list of strings in SHEMAT short notation representing the unit information.
-
-    """
-    a = array3d.flatten('F')
-    sequence = [len(list(group)) for key, group in itertools.groupby(a)]
-    unit_id = [key for key, group in itertools.groupby(a)]
-    combined = ["%s*%s" % (pair) for pair in zip(sequence, unit_id)]
-    return combined
